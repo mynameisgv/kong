@@ -320,4 +320,52 @@ describe("Admin API", function()
       end)
     end)
   end)
+
+  describe("/upstreams/{upstream}/targets/{target}", function()
+    describe("DELETE", function()
+      local target
+
+      before_each(function()
+        assert(helpers.dao.targets:insert {
+          target = "api-1:80",
+          weight = 10,
+          upstream_id = upstream.id,
+        })
+
+        -- predefine the target to mock delete
+        target = assert(helpers.dao.targets:insert {
+          target = "api-2:80",
+          weight = 10,
+          upstream_id = upstream.id,
+        })
+      end)
+
+      it("acts as a sugar method to POST a target with 0 weight", function()
+        local res = assert(client:send {
+          method = "DELETE",
+          path = "/upstreams/" .. upstream_name .. "/targets/" .. target.target
+        })
+        assert.response(res).has.status(204)
+
+        local targets = assert(client:send {
+          method = "GET",
+          path = "/upstreams/" .. upstream_name .. "/targets/",
+        })
+        assert.response(targets).has.status(200)
+        local json = assert.response(targets).has.jsonbody()
+        assert.equal(3, #json.data)
+        assert.equal(3, json.total)
+
+        local active = assert(client:send {
+          method = "GET",
+          path = "/upstreams/" .. upstream_name .. "/targets/active/",
+        })
+        assert.response(active).has.status(200)
+        json = assert.response(active).has.jsonbody()
+        assert.equal(1, #json.data)
+        assert.equal(1, json.total)
+        assert.equal("api-1:80", json.data[1].target)
+      end)
+    end)
+  end)
 end)
